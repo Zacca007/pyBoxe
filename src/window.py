@@ -1,7 +1,6 @@
-from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PyQt5.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QFrame, QLabel, QLineEdit)
 from PyQt5.QtCore import Qt
-from components import StyledFrame, NumericInput
-
+from components import NumericInput, StyledFrame
 
 
 class Window(QMainWindow):
@@ -48,7 +47,7 @@ class Window(QMainWindow):
         layout.addWidget(main_frame)
         layout.addWidget(submit_frame)
 
-    def create_input_frame(self, label_text: str, input_box: NumericInput) -> StyledFrame:
+    def create_input_frame(self, label_text: str, input_box: QLineEdit) -> QFrame:
         """ Crea un frame con un'etichetta e un input box. """
         frame = StyledFrame(color=self.FRAME_COLOR)
         layout = QHBoxLayout(frame)
