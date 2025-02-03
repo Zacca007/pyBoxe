@@ -1,16 +1,12 @@
 import sys
-from PyQt5.QtWidgets import QApplication
-from window import Window
+from PyQt6.QtWidgets import QApplication
+from modules.window import MyWindow
 
-"""
-Entry point of the application.
-Initializes the Qt application and shows the main window.
-"""
 def main() -> None:
-    application = QApplication(sys.argv)
-    main_window = Window()
-    main_window.show()
-    sys.exit(application.exec_())
+    app = QApplication(sys.argv)
+    window = MyWindow()
+    window.show()
+    sys.exit(app.exec())
 
 if __name__ == "__main__":
     main()

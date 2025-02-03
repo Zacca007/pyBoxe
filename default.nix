@@ -3,7 +3,7 @@ mkShell {
   buildInputs = with python312Packages; [
     openpyxl
     requests
-    pyqt5
+    pyqt6
     beautifulsoup4
   ];
 }
