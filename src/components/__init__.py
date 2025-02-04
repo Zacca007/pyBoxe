@@ -5,5 +5,4 @@ from .myInput import MyInput
 from .myLabel import MyLabel
 
 # Se aggiungi altri componenti, basta importarli qui
-
 __all__ = ["BaseWidget", "MyFrame", "MyButton", "MyInput", "MyLabel"]
