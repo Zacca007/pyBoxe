@@ -1,7 +1,6 @@
 from PyQt6.QtWidgets import QFrame, QLayout, QWidget
 from src.components import BaseWidget
 
-
 class MyFrame(QFrame, BaseWidget):
     def __init__(self, parent: QWidget, layout: QLayout, spacing: int | None = None,
                  padding: tuple[int, int, int, int] | None = None, **kwargs) -> None:

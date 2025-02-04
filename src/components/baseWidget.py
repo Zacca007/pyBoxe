@@ -1,7 +1,6 @@
 from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QWidget
 
-
 class BaseWidget:
     def setup(self, widget: QWidget, width: int | None = None, height: int | None = None,
               font_size: int | None = None, stylesheet: str | None = None) -> None:
