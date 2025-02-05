@@ -44,11 +44,15 @@ class NetManager:
             "Sec-Fetch-Site": "cross-site",
             "Priority": "u=0, i"
         }
+
+    __comitati: dict[str, int]
+
     def __init__(self):
         self.__payload = {
             "id_tipo_tessera": "5",  # Atleta dilettante IBA
             "sesso": "M"
         }
+
         """
         the websites checks for certificates that i know nothing about.
         i don't know why, but sometimes, a computer might not have the necessary certificates.
@@ -60,3 +64,25 @@ class NetManager:
         self.__session = requests.Session()
         self.__session.verify = False
         self.__session.headers.update(self.__header)
+
+    def setComitati(self) -> None:
+        response = self.__session.get(self.__URL["atleti"])
+        response.raise_for_status()  # Solleva HTTPError se lo status non è 200
+
+        soup = BeautifulSoup(response.text, "html.parser")
+        select_element = soup.find("select", id="id_comitato_atleti")
+
+        if not select_element:
+            raise ValueError("Elemento <select> con id 'id_comitato_atleti' non trovato nella pagina.")
+
+        self.__comitati = {option.text.strip(): option["value"] for option in select_element.find_all("option")}
+
+    def getComitati(self) -> dict[str, int]:
+        return self.__comitati
+
+if __name__ == "__main__":
+    nm = NetManager()
+    nm.setComitati()
+    print(nm.getComitati())
+
+
