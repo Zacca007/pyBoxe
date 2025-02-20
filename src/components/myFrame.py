@@ -29,3 +29,11 @@ class MyFrame(QFrame, BaseWidget):
         if not isinstance(widget, QWidget):
             raise TypeError("widget deve essere un QWidget")
         self.layout.addWidget(widget)
+
+    def removeWidget(self, widget: QWidget) -> None:
+        if not isinstance(widget, QWidget):
+            raise TypeError("widget deve essere un QWidget")
+
+        self.layout.removeWidget(widget)  # Rimuove dal layout
+        widget.setParent(None)  # Lo stacca dalla finestra
+        widget.deleteLater()  # Libera la memoria in modo sicuro

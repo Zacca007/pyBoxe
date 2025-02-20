@@ -1,23 +1,15 @@
-from typing import Final
+from typing import Final, Dict
 import requests
 from bs4 import BeautifulSoup
 
 
 class NetManager:
     __session: requests.Session
-
-    """
-    in order to search for athletes on the website, it's required to compile a (partially) dynamically generated form.
-    every field has a list of options that changes based on the combinations of options selected previously.
-    in order to do that, the website uses json data to memorize the options and to get new ones.
-    the payload attribute mimics is used as json in order to mimic the website structure.
-    """
     __payload: dict[str, int | str]
 
-    """
-    the website uses php src to manage dynamic form compilation.
-    the URL attribute serves as a collection of queries that lead to every php script necessary to compile the form.
-    """
+    # Cache per i pesi di ogni qualifica
+    __pesi_cache: Dict[str, Dict[str, str]]
+
     __URL: Final[dict[str, str]] = {
         "atleti": "https://www.fpi.it/atleti.html",
         "qualifiche": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_qualifiche",
@@ -25,12 +17,6 @@ class NetManager:
         "statistiche": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_totalizzatori"
     }
 
-    """
-    for some reason, the website has recently adopted cloudflare as security service,
-    this causes the program to get error status codes when sends any request to the web server is sent.
-    to bypass this problem, i just copied and pasted my own request HTTP header into the session headers,
-    i don't know which key - value makes the web server think i'm a human, but i don't even car
-    """
     __header: Final[dict[str, str]] = {
         "Host": "www.fpi.it",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
@@ -47,7 +33,6 @@ class NetManager:
     }
 
     __comitati: Final[dict[str, str]] = {
-        'Comitato': '',
         'C.R. ABRUZZO-MOLISE F.P.I.': '1',
         'C.R. CALABRIA F.P.I.': '3',
         'C.R. CAMPANIA F.P.I.': '4',
@@ -68,14 +53,7 @@ class NetManager:
         'DEL. REGIONALE UMBRIA F.P.I.': '16'
     }
 
-    __qualifiche: dict[str, str] = {
-        'Elite': '97',
-        'Elite II': '168',
-        'Junior': '139',
-        'Schoolboy': '17',
-        'Youth': '20'
-    }
-    __pesi: dict[str, str]
+    __qualifiche: dict[str, str]
 
     def __init__(self):
         self.__payload = {
@@ -83,55 +61,77 @@ class NetManager:
             "sesso": "M"
         }
 
-        """
-        the websites checks for certificates that i know nothing about.
-        i don't know why, but sometimes, a computer might not have the necessary certificates.
-        in order to completely avoid this problem, the verify parameter of session is set to false.
-        this leads to a less secure navigation that might cause really big problems if the website is under attack,
-        but since the activity on the website is very short, and the website hasn't got nothing to get attacked,
-        i feel like the risk is still near to none.
-        """
+        self.__pesi_cache = {}
+
         self.__session = requests.Session()
         self.__session.verify = False
         self.__session.headers.update(self.__header)
 
-    """
-    __comitati dict is hard coded for efficiency reasons.
-    if any values changes, just run this method, copy and paste the new dict and hard code it again.
-    
-    def setComitati(self) -> None:
-        response = self.__session.get(self.__URL["atleti"])
-        response.raise_for_status()  # Solleva HTTPError se lo status non è 200
-
-        soup = BeautifulSoup(response.text, "html.parser")
-        select_element = soup.find("select", id="id_comitato_atleti")
-
-        if not select_element:
-            raise ValueError("Elemento <select> con id 'id_comitato_atleti' non trovato nella pagina.")
-
-        self.__comitati = {option.text.strip(): option["value"] for option in select_element.find_all("option")}
-    """
+        self.setQualifiche()
 
     def getComitati(self) -> dict[str, str]:
         return self.__comitati
 
-    def getqUalifiche(self) -> dict[str, str]:
-        return self.__qualifiche
-
-    """
-    the setPesi can become setQualifiche if the url is changed.
-    since the 'id_tipo_tessera' key in the payload has got a hard coded value, the result from setQualifiche will always be the same.
-    if the websites updates and any value changes, just run the method switching the url from pesi to qualifiche to get the new dict
-    """
-    def setPesi(self) -> None:
-        response = self.__session.get(self.__URL["pesi"], params=self.__payload)
+    def setQualifiche(self) -> None:
+        response = self.__session.get(self.__URL["qualifiche"], params=self.__payload)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
-        self.__pesi = {option.text: option["value"] for option in soup.find_all("option") if option['value']}
+        self.__qualifiche = {option.text: option["value"] for option in soup.find_all("option") if option['value']}
+
+    def getQualifiche(self) -> dict[str, str]:
+        return self.__qualifiche
+
+    def setPesi(self, qualifica: str) -> None:
+        """
+        Imposta i pesi per una qualifica specifica, usando la cache se disponibile
+        """
+        if qualifica not in self.__pesi_cache:
+            response = self.__session.get(self.__URL["peso"], params=self.__payload)
+            response.raise_for_status()
+
+            soup = BeautifulSoup(response.text, 'html.parser')
+            self.__pesi_cache[qualifica] = {
+                option.text: option["value"]
+                for option in soup.find_all("option")
+                if option['value']
+            }
 
     def getPesi(self) -> dict[str, str]:
-        return self.__pesi
+        """
+        Restituisce i pesi dalla cache per la qualifica corrente
+        """
+        current_qualifica = None
+        for q_name, q_id in self.__qualifiche.items():
+            if q_id == self.__payload.get("qualifica"):
+                current_qualifica = q_name
+                break
 
-if __name__ == "__main__":
-    nm = NetManager()
+        return self.__pesi_cache.get(current_qualifica, {})
+
+    def updateComitato(self, text: str) -> None:
+        self.__payload["id_comitato_atleti"] = self.__comitati[text]
+        print(self.__payload)
+
+    def updateQualifica(self, text: str, on_search: bool = False) -> None:
+        if on_search:
+            self.__payload["id_qualifica"] = self.__payload.pop("qualifica")
+        else:
+            self.__payload["qualifica"] = self.__qualifiche[text]
+            if "id_peso" in self.__payload:
+                self.__payload.pop("id_peso")
+
+            # Se non è Schoolboy, carica i pesi se non sono in cache
+            if text != "Schoolboy":
+                self.setPesi(text)
+        print(self.__payload)
+
+    def updatePesi(self, text: str) -> None:
+        current_qualifica = next(
+            (q_name for q_name, q_id in self.__qualifiche.items()
+             if q_id == self.__payload["qualifica"]),
+            None
+        )
+        if current_qualifica and text in self.__pesi_cache[current_qualifica]:
+            self.__payload["id_peso"] = self.__pesi_cache[current_qualifica][text]
+        print(self.__payload)
