@@ -4,7 +4,7 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QSizePolicy, QMessageBox
 from components import *
-from modules import *
+from modules import NetManager
 
 
 class MyWindow(QMainWindow):
@@ -20,13 +20,13 @@ class MyWindow(QMainWindow):
 
     def __init__(self) -> None:
         super().__init__(None)
-        self.setWindowTitle("My Custom Window")
+        self.setWindowTitle("PyBoxe")
         self.setMinimumSize(QSize(550, 550))
+        self.setStyleSheet("background-color: #555555;")
         self.setWindowIcon(QIcon("../assets/boxe.ico"))
 
         # Managers
         self.net_manager = NetManager()
-        self.data_manager: Optional[DataManager] = None
 
         # UI Elements (initialized as None)
         self.weights_box: Optional[MyComboBox] = None
@@ -49,7 +49,7 @@ class MyWindow(QMainWindow):
             parent=frame,
             only_numbers=True,
             height=45,
-            stylesheet=f"{self.FONT_SIZE}{self.BG_DARK_BLUE}{self.INPUT_PADDING}"
+            stylesheet=f"{self.FONT_SIZE}{self.BG_DARK_BLUE}{self.INPUT_PADDING}{self.TEXT_WHITE}"
         )
         frame.addWidget(label)
         frame.addWidget(input_field)
@@ -170,10 +170,11 @@ class MyWindow(QMainWindow):
             QMessageBox.critical(QMessageBox(), "Error", "The file name contains invalid characters.")
             return
 
-        self.data_manager = DataManager(
+        from modules import DataManager
+        data_manager = DataManager(
             self.net_manager,
             min_matches,
             max_matches,
             self.filename_input.text()
         )
-        self.data_manager.search()
+        data_manager.search()
