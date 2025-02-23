@@ -1,75 +1,79 @@
 import openpyxl
 from PyQt6.QtWidgets import QMessageBox
-
 from src.modules.netManager import NetManager
 
 class DataManager:
-    def __init__(self, net_manager: NetManager, min_matches: int, max_matches: int, file_name: str):
+    def __init__(self, net_manager: "NetManager", min_matches: int, max_matches: int, file_name: str):
         self.net_manager = net_manager
         self.min_matches = min_matches
         self.max_matches = max_matches
         self.file_name = file_name
 
     def search(self) -> None:
+        """
+        Initiates the search by fixing the payload and then fetching and displaying athletes.
+        """
         self.net_manager.fix_payload()
         self.fetch_and_display()
 
     def fetch_and_display(self) -> None:
-        athletes: list[dict[str, str | int | dict[str, int]]] = []
+        """
+        Fetches athlete data page by page, filters them based on match count,
+        and writes the results to an Excel file.
+        """
+        athletes: list[dict[str, str | int | dict[str, int]]] = list()
 
         while True:
-            athletes_divs = self.net_manager.get_athletes()
+            athlete_divs = self.net_manager.get_athletes()
 
-            if athletes_divs:
-                for athlete_div in athletes_divs:
+            if athlete_divs:
+                for athlete_div in athlete_divs:
                     button = athlete_div.find('button', class_='btn btn-dark btn-sm record')
-                    matricola = button["data-id"]
-                    stats = self.net_manager.get_athlete_stats(matricola)
+                    athlete_id = button["data-id"]
+                    stats = self.net_manager.get_athlete_stats(athlete_id)
 
-                    if not (self.min_matches <= stats["numero_match"] <= self.max_matches):
+                    # Filter athletes based on match count
+                    if not (self.min_matches <= stats["matches"] <= self.max_matches):
                         continue
 
+                    # Extract athlete details
                     name = athlete_div.find(class_='card-title').text
-                    age = int(
-                        athlete_div.find(class_='card-title')
-                        .find_next_sibling(class_='card-title').text.split(':')[-1]
-                    )
+                    age_text = athlete_div.find(class_='card-title').find_next_sibling(class_='card-title').text
+                    age = int(age_text.split(':')[-1])
                     club = athlete_div.find('h6', string='Società').find_next('p').text
 
                     athletes.append({
-                        "nome": name,
-                        "età": age,
-                        "società": club,
-                        "statistiche": stats
+                        "name": name,
+                        "age": age,
+                        "club": club,
+                        "stats": stats
                     })
 
                 self.net_manager.next_page()
             else:
-                wb = openpyxl.Workbook()
-                sheet = wb.active
-                keys = ["Nome e cognome", "Età", "Società", "Numero match", "Vittorie", "Sconfitte", "Pareggi"]
-                if sheet is not None:
-                    for col_num, key in enumerate(keys, start=1):
-                        sheet.cell(row=1, column=col_num, value=key)
-                    for row_num, atleta in enumerate(athletes, start=2):
-                        sheet.cell(row=row_num, column=1, value=atleta.get("nome"))
-                        sheet.cell(row=row_num, column=2, value=atleta.get("età"))
-                        sheet.cell(row=row_num, column=3, value=atleta.get("società"))
-                        sheet.cell(row=row_num, column=4, value=atleta["statistiche"].get("numero_match"))
-                        sheet.cell(row=row_num, column=5, value=atleta["statistiche"].get("vittorie"))
-                        sheet.cell(row=row_num, column=6, value=atleta["statistiche"].get("sconfitte"))
-                        sheet.cell(row=row_num, column=7, value=atleta["statistiche"].get("pareggi"))
+                workbook = openpyxl.Workbook()
+                sheet = workbook.active
+                headers = ["Name", "Age", "Club", "Matches", "Wins", "Losses", "Draws"]
+
+                for col_num, header in enumerate(headers, start=1):
+                    sheet.cell(row=1, column=col_num, value=header)
+                for row_num, athlete in enumerate(athletes, start=2):
+                    sheet.cell(row=row_num, column=1, value=athlete.get("name"))
+                    sheet.cell(row=row_num, column=2, value=athlete.get("age"))
+                    sheet.cell(row=row_num, column=3, value=athlete.get("club"))
+                    sheet.cell(row=row_num, column=4, value=athlete["stats"].get("matches"))
+                    sheet.cell(row=row_num, column=5, value=athlete["stats"].get("wins"))
+                    sheet.cell(row=row_num, column=6, value=athlete["stats"].get("losses"))
+                    sheet.cell(row=row_num, column=7, value=athlete["stats"].get("draws"))
 
                 try:
-                    wb.save(f"{self.file_name}.xlsx")
+                    workbook.save(f"{self.file_name}.xlsx")
                     msg = QMessageBox()
-                    msg.setIcon(QMessageBox.Icon.Warning)  # Impostiamo l'icona come avviso (Warning)
-                    msg.setWindowTitle("processo terminato")
-                    msg.setText(f"File '{self.file_name}.xlsx' creato con successo!")
-                    msg.setStandardButtons(QMessageBox.StandardButton.Ok)  # Pulsante Ok
-
-                    # Mostra il messaggio
+                    msg.setIcon(QMessageBox.Icon.Warning)  # Using warning icon for the message
+                    msg.setWindowTitle("Process Completed")
+                    msg.setText(f"File '{self.file_name}.xlsx' created successfully!")
+                    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
                     msg.exec()
-                except:
-                    QMessageBox.critical(QMessageBox(), "Errore", "non è stato possibile salvare il file")
+                except Exception:
+                    QMessageBox.critical(QMessageBox(), "Unable to save the file", f"{Exception}")
                 break

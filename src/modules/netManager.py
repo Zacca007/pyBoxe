@@ -1,22 +1,30 @@
-from typing import Final, Dict
+from typing import Final
 import requests
 from bs4 import BeautifulSoup, ResultSet
 
-
 class NetManager:
-    __session: requests.Session
-    __payload: Dict[str, int | str]
-    __pesi_cache: Dict[str, Dict[str, str]]
-    __qualifiche: Dict[str, str]
+    """
+    This class handles the network operations required to search for athletes.
+    The website requires a dynamically generated form where each field's options depend on previous selections.
+    The payload mimics the structure of the website's JSON data used to generate the form.
+    """
 
-    __URL: Final[Dict[str, str]] = {
-        "atleti": "https://www.fpi.it/atleti.html",
-        "qualifiche": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_qualifiche",
-        "peso": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_peso",
-        "statistiche": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_totalizzatori",
+    # Private attributes with type hints
+    _session: requests.Session
+    _payload: dict[str, int | str]
+    _weights_cache: dict[str, dict[str, str]]
+    _qualifications: dict[str, str]
+
+    # URLs for various API endpoints
+    _URL: Final[dict[str, str]] = {
+        "athletes": "https://www.fpi.it/atleti.html",
+        "qualifications": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_qualifiche",
+        "weights": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_peso",
+        "statistics": "https://www.fpi.it/index.php?option=com_callrestapi&task=json_totalizzatori",
     }
 
-    __HEADERS: Final[Dict[str, str]] = {
+    # HTTP headers to bypass Cloudflare restrictions
+    _HEADERS: Final[dict[str, str]] = {
         "Host": "www.fpi.it",
         "User-Agent": "Mozilla/5.0 (X11; Linux x86_64; rv:134.0) Gecko/20100101 Firefox/134.0",
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -31,106 +39,147 @@ class NetManager:
         "Priority": "u=0, i",
     }
 
-    __COMITATI: Final[Dict[str, str]] = {
+    # Committees mapping
+    _COMMITTEES: Final[dict[str, str]] = {
         "C.R. ABRUZZO-MOLISE F.P.I.": "1",
         "C.R. CALABRIA F.P.I.": "3",
         "C.R. CAMPANIA F.P.I.": "4",
         "C.R. EMILIA - ROMAGNA F.P.I.": "5",
         "C.R. FRIULI V.GIULIA F.P.I.": "18",
-        "C.R. LAZIO  F.P.I.": "8",
-        "C.R. LIGURIA  F.P.I.": "7",
-        "C.R. LOMBARDIA  F.P.I.": "6",
+        "C.R. LAZIO F.P.I.": "8",
+        "C.R. LIGURIA F.P.I.": "7",
+        "C.R. LOMBARDIA F.P.I.": "6",
         "C.R. MARCHE F.P.I.": "9",
         "C.R. PIEMONTE-VALLE D'AOSTA F.P.I.": "11",
         "C.R. PUGLIA-BASILICATA F.P.I.": "10",
         "C.R. SARDEGNA F.P.I.": "12",
-        "C.R. SICILIA  F.P.I.": "13",
-        "C.R. TOSCANA  F.P.I.": "15",
-        "C.R. VENETO  F.P.I.": "17",
+        "C.R. SICILIA F.P.I.": "13",
+        "C.R. TOSCANA F.P.I.": "15",
+        "C.R. VENETO F.P.I.": "17",
         "DEL. PROVINCIALE DI BOLZANO F.P.I.": "2",
         "DEL. PROVINCIALE DI TRENTO F.P.I.": "14",
         "DEL. REGIONALE UMBRIA F.P.I.": "16",
     }
 
-    def __init__(self):
-        self.__payload = {"id_tipo_tessera": "5", "sesso": "M"}
-        self.__pesi_cache = {}
-        self.__session = requests.Session()
-        self.__session.verify = False
-        self.__session.headers.update(self.__HEADERS)
-        self.set_qualifiche()
+    def __init__(self) -> None:
+        # Initialize the payload with default parameters
+        self._payload = {"id_tipo_tessera": "5", "sesso": "M"}
+        self._weights_cache = {}
+        self._session = requests.Session()
+        self._session.verify = False  # Disable certificate verification for short-lived requests
+        self._session.headers.update(self._HEADERS)
+
+        self._set_qualifications()
 
     def get_session(self) -> requests.Session:
-        return self.__session
+        return self._session
 
-    def get_comitati(self) -> Dict[str, str]:
-        return self.__COMITATI
+    def get_committees(self) -> dict[str, str]:
+        return self._COMMITTEES
 
-    def set_qualifiche(self) -> None:
-        response = self.__session.get(self.__URL["qualifiche"], params=self.__payload)
+    def _set_qualifications(self) -> None:
+        """
+        Retrieves the qualifications data from the API and stores it.
+        """
+        response = self._session.get(self._URL["qualifications"], params=self._payload)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        self.__qualifiche = {opt.text: opt["value"] for opt in soup.find_all("option") if opt["value"]}
+        self._qualifications = {option.text: option["value"] for option in soup.find_all("option") if option["value"]}
 
-    def get_qualifiche(self) -> Dict[str, str]:
-        return self.__qualifiche
+    def get_qualifications(self) -> dict[str, str]:
+        return self._qualifications
 
-    def set_pesi(self, qualifica: str) -> None:
-        if qualifica not in self.__pesi_cache:
-            response = self.__session.get(self.__URL["peso"], params=self.__payload)
+    def _set_weights(self, qualification: str) -> None:
+        """
+        Retrieves weights data for a given qualification and caches it.
+        """
+        if qualification not in self._weights_cache:
+            response = self._session.get(self._URL["weights"], params=self._payload)
             response.raise_for_status()
             soup = BeautifulSoup(response.text, "html.parser")
-            self.__pesi_cache[qualifica] = {
-                opt.text: opt["value"] for opt in soup.find_all("option") if opt["value"]
+            self._weights_cache[qualification] = {
+                option.text: option["value"] for option in soup.find_all("option") if option["value"]
             }
 
-    def get_pesi(self) -> Dict[str, str]:
-        current_qualifica = next(
-            (name for name, q_id in self.__qualifiche.items() if q_id == self.__payload.get("qualifica")), None
+    def get_weights(self) -> dict[str, str]:
+        """
+        Returns the cached weights for the current qualification.
+        """
+        current_qualification = next(
+            (name for name, q_id in self._qualifications.items() if q_id == self._payload.get("qualifica")), None
         )
-        return self.__pesi_cache.get(current_qualifica, {})
+        return self._weights_cache.get(current_qualification, {})
 
-    def update_comitato(self, text: str) -> None:
-        self.__payload["id_comitato_atleti"] = self.__COMITATI[text]
+    def update_committee(self, text: str) -> None:
+        """
+        Updates the payload with the selected committee.
+        """
+        self._payload["id_comitato_atleti"] = self._COMMITTEES[text]
 
-    def update_qualifica(self, text: str, on_search: bool = False) -> None:
+    def update_qualification(self, text: str, on_search: bool = False) -> None:
+        """
+        Updates the payload with the selected qualification and resets the weight parameter.
+        """
         if on_search:
-            self.__payload["id_qualifica"] = self.__payload.pop("qualifica")
+            # When searching, rename the key to match the expected API parameter
+            self._payload["id_qualifica"] = self._payload.pop("qualifica")
         else:
-            self.__payload["qualifica"] = self.__qualifiche[text]
-            self.__payload.pop("id_peso", None)
+            self._payload["qualifica"] = self._qualifications[text]
+            self._payload.pop("id_peso", None)
             if text != "Schoolboy":
-                self.set_pesi(text)
+                self._set_weights(text)
 
-    def update_pesi(self, text: str) -> None:
-        current_qualifica = next(
-            (name for name, q_id in self.__qualifiche.items() if q_id == self.__payload["qualifica"]), None
+    def update_weights(self, text: str) -> None:
+        """
+        Updates the payload with the selected weight.
+        """
+        current_qualification = next(
+            (name for name, q_id in self._qualifications.items() if q_id == self._payload["qualifica"]),
+            None
         )
-        if current_qualifica and text in self.__pesi_cache.get(current_qualifica, {}):
-            self.__payload["id_peso"] = self.__pesi_cache[current_qualifica][text]
+        if current_qualification and text in self._weights_cache.get(current_qualification, {}):
+            self._payload["id_peso"] = self._weights_cache[current_qualification][text]
 
     def fix_payload(self) -> None:
-        qualifica = self.__payload.pop("qualifica", None)
-        if qualifica is not None:
-            self.__payload["id_qualifica"] = qualifica
-            peso = self.__payload.get("id_peso")
-            if peso is not None:
-                if qualifica == "20" and peso == "114":
-                    self.__payload["id_peso"] = "468"
-                elif qualifica == "97" and peso == "159":
-                    self.__payload["id_peso"] = "429"
-        self.__payload["page"] = "1"
+        """
+        Adjusts the payload keys and fixes specific edge cases required by the API.
+        """
+        qualification = self._payload.pop("qualifica", None)
+        if qualification is not None:
+            self._payload["id_qualifica"] = qualification
+            weight = self._payload.get("id_peso")
+            if weight is not None:
+                # Specific edge case adjustments for certain qualification and weight combinations
+                if qualification == "20" and weight == "114":
+                    self._payload["id_peso"] = "468"
+                elif qualification == "97" and weight == "159":
+                    self._payload["id_peso"] = "429"
+        self._payload["page"] = "1"
 
     def get_athletes(self) -> ResultSet:
-        response = self.__session.post(self.__URL["atleti"], params=self.__payload)
+        """
+        Fetches the athletes page based on the current payload.
+        """
+        response = self._session.post(self._URL["athletes"], params=self._payload)
         response.raise_for_status()
         return BeautifulSoup(response.text, "html.parser").find_all("div", class_="atleta")
 
-    def get_athlete_stats(self, matricola: str) -> Dict[str, int]:
-        response = self.__session.post(self.__URL["statistiche"], params={"matricola": matricola})
+    def get_athlete_stats(self, athlete_id: str) -> dict[str, int]:
+        """
+        Retrieves statistics for a given athlete.
+        """
+        response = self._session.post(self._URL["statistics"], params={"matricola": athlete_id})
         response.raise_for_status()
         stats = BeautifulSoup(response.text, "html.parser").find_all("td")
-        return {"numero_match": int(stats[0].text), "vittorie": int(stats[1].text), "sconfitte": int(stats[2].text), "pareggi": int(stats[3].text)}
+        return {
+            "matches": int(stats[0].text),
+            "wins": int(stats[1].text),
+            "losses": int(stats[2].text),
+            "draws": int(stats[3].text)
+        }
 
     def next_page(self) -> None:
-        self.__payload["page"] = str(int(self.__payload["page"]) + 1)
+        """
+        Increments the page number in the payload to fetch the next set of athletes.
+        """
+        self._payload["page"] = str(int(self._payload["page"]) + 1)
