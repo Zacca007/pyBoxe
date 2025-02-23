@@ -3,9 +3,8 @@ import re
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QSizePolicy, QMessageBox
-from src.components import *
-from src.modules.netManager import NetManager
-from src.modules.dataManager import DataManager
+from components import *
+from modules import *
 
 
 class MyWindow(QMainWindow):

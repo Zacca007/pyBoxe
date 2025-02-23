@@ -1,9 +1,9 @@
 import openpyxl
 from PyQt6.QtWidgets import QMessageBox
-from src.modules.netManager import NetManager
+from modules import NetManager
 
 class DataManager:
-    def __init__(self, net_manager: "NetManager", min_matches: int, max_matches: int, file_name: str):
+    def __init__(self, net_manager: NetManager, min_matches: int, max_matches: int, file_name: str):
         self.net_manager = net_manager
         self.min_matches = min_matches
         self.max_matches = max_matches

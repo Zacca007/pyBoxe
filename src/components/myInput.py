@@ -1,6 +1,6 @@
 from PyQt6.QtGui import QIntValidator
 from PyQt6.QtWidgets import QLineEdit, QWidget
-from src.components import BaseWidget
+from components import BaseWidget
 
 class MyInput(QLineEdit, BaseWidget):
     def __init__(self, parent: QWidget, placeholder_text: str | None = None, only_numbers: bool = False, **kwargs) -> None:

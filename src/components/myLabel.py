@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QLabel, QWidget
-from src.components import BaseWidget
+from components import BaseWidget
 
 class MyLabel(QLabel, BaseWidget):
     def __init__(self, text: str, parent: QWidget, **kwargs) -> None:

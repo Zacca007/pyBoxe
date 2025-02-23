@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import QFrame, QLayout, QWidget
 from PyQt6.QtCore import Qt
-from src.components import BaseWidget
+from components import BaseWidget
 
 
 class MyFrame(QFrame, BaseWidget):
