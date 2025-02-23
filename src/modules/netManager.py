@@ -1,14 +1,14 @@
+from http.client import responses
 from typing import Final, Dict
 import requests
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, ResultSet
 
 
 class NetManager:
     __session: requests.Session
     __payload: dict[str, int | str]
-
-    # Cache per i pesi di ogni qualifica
     __pesi_cache: Dict[str, Dict[str, str]]
+    __qualifiche: dict[str, str]
 
     __URL: Final[dict[str, str]] = {
         "atleti": "https://www.fpi.it/atleti.html",
@@ -53,8 +53,6 @@ class NetManager:
         'DEL. REGIONALE UMBRIA F.P.I.': '16'
     }
 
-    __qualifiche: dict[str, str]
-
     def __init__(self):
         self.__payload = {
             "id_tipo_tessera": "5",  # Atleta dilettante IBA
@@ -68,6 +66,9 @@ class NetManager:
         self.__session.headers.update(self.__header)
 
         self.setQualifiche()
+
+    def getSession(self) -> requests.Session:
+        return self.__session
 
     def getComitati(self) -> dict[str, str]:
         return self.__comitati
@@ -83,9 +84,6 @@ class NetManager:
         return self.__qualifiche
 
     def setPesi(self, qualifica: str) -> None:
-        """
-        Imposta i pesi per una qualifica specifica, usando la cache se disponibile
-        """
         if qualifica not in self.__pesi_cache:
             response = self.__session.get(self.__URL["peso"], params=self.__payload)
             response.raise_for_status()
@@ -98,9 +96,6 @@ class NetManager:
             }
 
     def getPesi(self) -> dict[str, str]:
-        """
-        Restituisce i pesi dalla cache per la qualifica corrente
-        """
         current_qualifica = None
         for q_name, q_id in self.__qualifiche.items():
             if q_id == self.__payload.get("qualifica"):
@@ -135,3 +130,38 @@ class NetManager:
         if current_qualifica and text in self.__pesi_cache[current_qualifica]:
             self.__payload["id_peso"] = self.__pesi_cache[current_qualifica][text]
         print(self.__payload)
+
+    def fixPayload(self) -> None:
+        qualifica = self.__payload.pop("qualifica")
+        if qualifica is not None:
+            self.__payload["id_qualifica"] = qualifica
+            peso = self.__payload["id_peso"]
+            if peso is not None:
+                if qualifica == 20 and peso == 114:
+                    self.__payload["id_peso"] = 468
+                elif qualifica == 97 and peso == 159:
+                    self.__payload["id_peso"] = 429
+        self.__payload["page"] = "1"
+
+    def getAthletes(self) -> ResultSet:
+        response = self.__session.post(self.__URL["atleti"], params=self.__payload)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+        return soup.find_all("div", class_="atleta")
+
+    def getAthleteStats(self, matricola: str) -> dict[str, int]:
+        response = self.__session.post(self.__URL["statistiche"], params={"matricola": matricola})
+        response.raise_for_status()
+        stats = BeautifulSoup(response.text, 'html.parser').find_all("td")
+        statistiche = {
+            "numero_match": int(stats[0].text),
+            "vittorie": int(stats[1].text),
+            "sconfitte": int(stats[2].text),
+            "pareggi": int(stats[3].text),
+        }
+        return statistiche
+
+    def nextPage(self) -> None:
+        page = int(self.__payload["page"]) + 1
+        self.__payload["page"] = str(page)
