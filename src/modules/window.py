@@ -155,9 +155,8 @@ class MyWindow(QMainWindow):
         if self.weights_box:
             self.combobox_container.removeWidget(self.weights_box)
             self.weights_box = None
-        if text != "Schoolboy":
-            self.weights_box = self.create_combobox(list(self.net_manager.get_weights().keys()))
-            self.weights_box.currentTextChanged.connect(self.net_manager.update_weights)
+        
+        self.weights_box = self.create_combobox(list(self.net_manager.get_weights().keys()))
 
     def validate_input(self) -> None:
         """

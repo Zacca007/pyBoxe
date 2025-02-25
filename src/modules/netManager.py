@@ -126,8 +126,7 @@ class NetManager:
         else:
             self._payload["qualifica"] = self._qualifications[text]
             self._payload.pop("id_peso", None)
-            if text != "Schoolboy":
-                self._set_weights(text)
+            self._set_weights(text)
 
     def update_weights(self, text: str) -> None:
         """
@@ -147,13 +146,6 @@ class NetManager:
         qualification = self._payload.pop("qualifica", None)
         if qualification is not None:
             self._payload["id_qualifica"] = qualification
-            weight = self._payload.get("id_peso")
-            if weight is not None:
-                # Specific edge case adjustments for certain qualification and weight combinations
-                if qualification == "20" and weight == "114":
-                    self._payload["id_peso"] = "468"
-                elif qualification == "97" and weight == "159":
-                    self._payload["id_peso"] = "429"
         self._payload["page"] = "1"
 
     def get_athletes(self) -> ResultSet:
