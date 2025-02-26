@@ -157,6 +157,7 @@ class MyWindow(QMainWindow):
             self.weights_box = None
         
         self.weights_box = self.create_combobox(list(self.net_manager.get_weights().keys()))
+        self.weights_box.currentTextChanged.connect(self.net_manager.update_weights)
 
     def validate_input(self) -> None:
         """

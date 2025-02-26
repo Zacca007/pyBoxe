@@ -116,17 +116,14 @@ class NetManager:
         """
         self._payload["id_comitato_atleti"] = self._COMMITTEES[text]
 
-    def update_qualification(self, text: str, on_search: bool = False) -> None:
+    def update_qualification(self, text: str) -> None:
         """
         Updates the payload with the selected qualification and resets the weight parameter.
         """
-        if on_search:
-            # When searching, rename the key to match the expected API parameter
-            self._payload["id_qualifica"] = self._payload.pop("qualifica")
-        else:
-            self._payload["qualifica"] = self._qualifications[text]
-            self._payload.pop("id_peso", None)
-            self._set_weights(text)
+        
+        self._payload["qualifica"] = self._qualifications[text]
+        self._payload.pop("id_peso", None)
+        self._set_weights(text)
 
     def update_weights(self, text: str) -> None:
         """
@@ -147,6 +144,12 @@ class NetManager:
         if qualification is not None:
             self._payload["id_qualifica"] = qualification
         self._payload["page"] = "1"
+
+    def reset_payload(self) -> None:
+        qualification = self._payload.pop("id_qualifica", None)
+        if qualification is not None:
+            self._payload["qualifica"] = qualification
+        self._payload.pop("page", None)
 
     def get_athletes(self) -> ResultSet:
         """

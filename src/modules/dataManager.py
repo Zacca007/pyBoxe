@@ -21,59 +21,65 @@ class DataManager:
         Fetches athlete data page by page, filters them based on match count,
         and writes the results to an Excel file.
         """
-        athletes: list[dict[str, str | int | dict[str, int]]] = list()
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        headers = ["Name", "Age", "Club", "Matches", "Wins", "Losses", "Draws"]
 
-        while True:
-            athlete_divs = self.net_manager.get_athletes()
+        # Scrittura degli header
+        for col_num, header in enumerate(headers, start=1):
+            sheet.cell(row=1, column=col_num, value=header)
 
-            if athlete_divs:
+        row_num = 2  # Righe successive alla prima
+        try:
+            while True:
+                athlete_divs = self.net_manager.get_athletes()
+                if not athlete_divs:
+                    break
+
                 for athlete_div in athlete_divs:
                     button = athlete_div.find('button', class_='btn btn-dark btn-sm record')
                     athlete_id = button["data-id"]
                     stats = self.net_manager.get_athlete_stats(athlete_id)
 
-                    # Filter athletes based on match count
-                    if not (self.min_matches <= stats["matches"] <= self.max_matches):
+                    # Filtraggio per numero di match
+                    match_count = stats["matches"]
+                    if match_count < self.min_matches or match_count > self.max_matches:
                         continue
 
-                    # Extract athlete details
-                    name = athlete_div.find(class_='card-title').text
-                    age_text = athlete_div.find(class_='card-title').find_next_sibling(class_='card-title').text
-                    age = int(age_text.split(':')[-1])
-                    club = athlete_div.find('h6', string='Società').find_next('p').text
+                    # Estrazione dettagli atleta
+                    name_elem = athlete_div.find(class_='card-title')
+                    name = name_elem.text.strip() if name_elem else "Unknown"
 
-                    athletes.append({
-                        "name": name,
-                        "age": age,
-                        "club": club,
-                        "stats": stats
-                    })
+                    age_text = name_elem.find_next_sibling(class_='card-title').text
+                    age = int(age_text.split(':')[-1]) if age_text and ':' in age_text else None
+
+                    club_elem = athlete_div.find('h6', string='Società')
+                    club = club_elem.find_next('p').text.strip() if club_elem else "Unknown"
+
+                    # Scrittura diretta nel file Excel
+                    sheet.cell(row=row_num, column=1, value=name)
+                    sheet.cell(row=row_num, column=2, value=age)
+                    sheet.cell(row=row_num, column=3, value=club)
+                    sheet.cell(row=row_num, column=4, value=match_count)
+                    sheet.cell(row=row_num, column=5, value=stats["wins"])
+                    sheet.cell(row=row_num, column=6, value=stats["losses"])
+                    sheet.cell(row=row_num, column=7, value=stats["draws"])
+
+                    row_num += 1
 
                 self.net_manager.next_page()
-            else:
-                workbook = openpyxl.Workbook()
-                sheet = workbook.active
-                headers = ["Name", "Age", "Club", "Matches", "Wins", "Losses", "Draws"]
 
-                for col_num, header in enumerate(headers, start=1):
-                    sheet.cell(row=1, column=col_num, value=header)
-                for row_num, athlete in enumerate(athletes, start=2):
-                    sheet.cell(row=row_num, column=1, value=athlete.get("name"))
-                    sheet.cell(row=row_num, column=2, value=athlete.get("age"))
-                    sheet.cell(row=row_num, column=3, value=athlete.get("club"))
-                    sheet.cell(row=row_num, column=4, value=athlete["stats"].get("matches"))
-                    sheet.cell(row=row_num, column=5, value=athlete["stats"].get("wins"))
-                    sheet.cell(row=row_num, column=6, value=athlete["stats"].get("losses"))
-                    sheet.cell(row=row_num, column=7, value=athlete["stats"].get("draws"))
+            self.net_manager.reset_payload()
 
-                try:
-                    workbook.save(f"{self.file_name}.xlsx")
-                    msg = QMessageBox()
-                    msg.setIcon(QMessageBox.Icon.Warning)  # Using warning icon for the message
-                    msg.setWindowTitle("Process Completed")
-                    msg.setText(f"File '{self.file_name}.xlsx' created successfully!")
-                    msg.setStandardButtons(QMessageBox.StandardButton.Ok)
-                    msg.exec()
-                except Exception:
-                    QMessageBox.critical(QMessageBox(), "Unable to save the file", f"{Exception}")
-                break
+            # Salvataggio file
+            workbook.save(f"{self.file_name}.xlsx")
+
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setWindowTitle("Process Completed")
+            msg.setText(f"File '{self.file_name}.xlsx' created successfully!")
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+
+        except Exception as e:
+            QMessageBox.critical(None, "Unable to save the file", str(e))
