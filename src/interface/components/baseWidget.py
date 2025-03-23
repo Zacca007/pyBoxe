@@ -1,6 +1,5 @@
 from PyQt6.QtWidgets import QWidget
 
-
 class BaseWidget:
     def setup(self, widget: QWidget,
               min_width: int | None = None, width: int | None = None, max_width: int | None = None,

@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QPushButton, QWidget
-from components import BaseWidget
+from . import BaseWidget
 
 class MyButton(QPushButton, BaseWidget):
     def __init__(self, text: str, parent: QWidget, **kwargs) -> None:

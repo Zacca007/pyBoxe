@@ -1,22 +1,21 @@
-from typing import Final, Optional
 import re
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QVBoxLayout, QHBoxLayout, QSizePolicy, QMessageBox
-from components import *
-from modules import NetManager
+from core import *
+from .components import *
 
 
 class MyWindow(QMainWindow):
     # Style constants
-    BG_LIGHT_BLUE: Final[str] = "background-color: #8D99AE;"
-    BG_DARK_BLUE: Final[str] = "background-color: #2B2D42;"
-    BG_WHITE: Final[str] = "background-color: white;"
-    BORDER_RADIUS: Final[str] = "border-radius: 5px;"
-    TEXT_WHITE: Final[str] = "color: white;"
-    TEXT_BLACK: Final[str] = "color: black;"
-    FONT_SIZE: Final[str] = "font-size: 18px;"
-    INPUT_PADDING: Final[str] = "padding: 5px;"
+    BG_LIGHT_BLUE: str = "background-color: #8D99AE;"
+    BG_DARK_BLUE: str = "background-color: #2B2D42;"
+    BG_WHITE: str = "background-color: white;"
+    BORDER_RADIUS: str = "border-radius: 5px;"
+    TEXT_WHITE: str = "color: white;"
+    TEXT_BLACK: str = "color: black;"
+    FONT_SIZE: str = "font-size: 18px;"
+    INPUT_PADDING: str = "padding: 5px;"
 
     def __init__(self) -> None:
         super().__init__(None)
@@ -26,16 +25,16 @@ class MyWindow(QMainWindow):
         self.setWindowIcon(QIcon("../assets/boxe.ico"))
 
         # Managers
-        self.net_manager = NetManager()
+        self.network = Network()
 
         # UI Elements (initialized as None)
-        self.weights_box: Optional[MyComboBox] = None
-        self.min_input: Optional[MyInput] = None
-        self.max_input: Optional[MyInput] = None
-        self.committees_box: Optional[MyComboBox] = None
-        self.qualifications_box: Optional[MyComboBox] = None
-        self.filename_input: Optional[MyInput] = None
-        self.combobox_container: Optional[MyFrame] = None
+        self.weights_box: MyComboBox = None
+        self.min_input: MyInput = None
+        self.max_input: MyInput = None
+        self.committees_box: MyComboBox = None
+        self.qualifications_box: MyComboBox = None
+        self.filename_input: MyInput = None
+        self.combobox_container: MyFrame = None
 
         self.init_ui()
 
@@ -100,10 +99,10 @@ class MyWindow(QMainWindow):
         filters_frame.addWidget(self.combobox_container)
 
         # Combo boxes for committees and qualifications
-        self.committees_box = self.create_combobox(list(self.net_manager.get_committees().keys()))
-        self.committees_box.currentTextChanged.connect(self.net_manager.update_committee)
+        self.committees_box = self.create_combobox(list(self.network.get_committees().keys()))
+        self.committees_box.currentTextChanged.connect(self.network.update_committee)
 
-        self.qualifications_box = self.create_combobox(list(self.net_manager.get_qualifications().keys()))
+        self.qualifications_box = self.create_combobox(list(self.network.get_qualifications().keys()))
         self.qualifications_box.currentTextChanged.connect(self.update_filters_state)
 
         filters_frame.layout.addStretch()
@@ -151,13 +150,13 @@ class MyWindow(QMainWindow):
         """
         Updates the state of filters based on the selected qualification.
         """
-        self.net_manager.update_qualification(text)
+        self.network.update_qualification(text)
         if self.weights_box:
             self.combobox_container.removeWidget(self.weights_box)
             self.weights_box = None
         
-        self.weights_box = self.create_combobox(list(self.net_manager.get_weights().keys()))
-        self.weights_box.currentTextChanged.connect(self.net_manager.update_weights)
+        self.weights_box = self.create_combobox(list(self.network.get_weights().keys()))
+        self.weights_box.currentTextChanged.connect(self.network.update_weights)
 
     def validate_input(self) -> None:
         """
@@ -165,16 +164,25 @@ class MyWindow(QMainWindow):
         """
         min_matches = int(self.min_input.text() or 3)
         max_matches = int(self.max_input.text() or 7)
+        filename = self.filename_input.text()
 
-        if not re.match(r'^[\w\-.]+$', self.filename_input.text()):
+        if not re.match(r'^[\w\-.]+$', filename):
             QMessageBox.critical(QMessageBox(), "Error", "The file name contains invalid characters.")
             return
 
-        from modules import DataManager
-        data_manager = DataManager(
-            self.net_manager,
+        data_manager = Writer(
+            self.network,
             min_matches,
             max_matches,
-            self.filename_input.text()
+            filename
         )
-        data_manager.search()
+        try:
+            data_manager.search()
+            msg = QMessageBox()
+            msg.setIcon(QMessageBox.Icon.Information)
+            msg.setWindowTitle("Process Completed")
+            msg.setText(f"File '{filename}.xlsx' created successfully!")
+            msg.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg.exec()
+        except Exception as e:
+            QMessageBox.critical(None, "Unable to save the file", str(e))
