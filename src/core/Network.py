@@ -1,7 +1,6 @@
 import requests
 from bs4 import BeautifulSoup, ResultSet
-from core.Athlete import Athlete
-
+from . import Athlete
 
 class Network:
     # URLs for various API endpoints
@@ -58,31 +57,37 @@ class Network:
         "sesso": "M",
     }
 
+    _session = requests.Session()
+
     def __init__(self):
-        self._session = requests.Session()
         self._session.verify = False
         self._session.headers.update(self._HEADERS)
-        self._set_qualifications()
+        self._scrap_qualifications()
 
-    def get_session(self) -> requests.Session:
-        return self._session
+    @property
+    def committees(self) -> list[str]:
+        return list(self._COMMITTEES.keys())
 
-    def get_committees(self) -> dict[str, str]:
-        return self._COMMITTEES
+    @property
+    def qualifications(self) -> list[str]:
+        return list(self._qualifications.keys())
 
-    def get_qualifications(self) -> dict[str, str]:
-        return self._qualifications
+    @property
+    def weights(self) -> list[str]:
+        current_qualification = self._current_qualification()
+        if current_qualification != "":
+            return list(self._weights_cache[self._current_qualification()].keys())
+        return ""
 
-    def get_weights(self) -> dict[str, str]:
-        return self._weights_cache.get(self._current_qualification())
-
-    def _set_qualifications(self) -> None:
+    def _scrap_qualifications(self) -> None:
         response = self._session.get(self._URL["qualifications"], params=self._payload)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
-        self._qualifications = {option.text: option["value"] for option in soup.find_all("option") if option["value"]}
+        for option in soup.find_all("option"):
+            if option["value"]:
+                self._qualifications[option.text] = option["value"]
 
-    def set_weights(self, qualification: str) -> None:
+    def _scrap_weights(self, qualification: str) -> None:
         if qualification not in self._weights_cache:
             response = self._session.get(self._URL["weights"], params=self._payload)
             response.raise_for_status()
@@ -92,24 +97,32 @@ class Network:
             }
 
     def update_committee(self, text: str) -> None:
-        self._payload["id_comitato_atleti"] = self._COMMITTEES[text]
+        if text != "":
+            self._payload["id_comitato_atleti"] = self._COMMITTEES[text]
+        else:
+            self._payload.pop("id_comitato_atleti")
 
     def update_qualification(self, text: str) -> None:
-        self._payload["qualifica"] = self._qualifications[text]
         self._payload.pop("id_peso", None)
-        self.set_weights(text)
+        if text != "":
+            self._payload["qualifica"] = self._qualifications[text]
+            self._scrap_weights(text)
+        else:
+            self._payload.pop("qualifica")
 
     def update_weights(self, text: str) -> None:
-        current_qualification = self._current_qualification()
-        if current_qualification and text in self._weights_cache.get(current_qualification):
-            self._payload["id_peso"] = self._weights_cache[current_qualification][text]
+        if text != "":
+            self._payload["id_peso"] = self._weights_cache[self._current_qualification()][text]
+        else:
+            self._payload.pop("id_peso", None)
 
     def _current_qualification(self) -> str:
         for qualification, value in self._qualifications.items():
             if value == self._payload.get("qualifica"):
                 return qualification
+        return ""
 
-    def fix_payload(self) -> None:
+    def setup_payload_on_search(self) -> None:
         qualification = self._payload.pop("qualifica", None)
         if qualification is not None:
             self._payload["id_qualifica"] = qualification
@@ -119,7 +132,7 @@ class Network:
         qualification = self._payload.pop("id_qualifica", None)
         if qualification is not None:
             self._payload["qualifica"] = qualification
-        self._payload.pop("page", None)
+        self._payload.pop("page")
 
     def next_page(self) -> None:
         self._payload["page"] = str(int(self._payload["page"]) + 1)

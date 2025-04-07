@@ -99,10 +99,10 @@ class MyWindow(QMainWindow):
         filters_frame.addWidget(self.combobox_container)
 
         # Combo boxes for committees and qualifications
-        self.committees_box = self.create_combobox(list(self.network.get_committees().keys()))
+        self.committees_box = self.create_combobox([""]+self.network.committees)
         self.committees_box.currentTextChanged.connect(self.network.update_committee)
 
-        self.qualifications_box = self.create_combobox(list(self.network.get_qualifications().keys()))
+        self.qualifications_box = self.create_combobox([""]+self.network.qualifications)
         self.qualifications_box.currentTextChanged.connect(self.update_filters_state)
 
         filters_frame.layout.addStretch()
@@ -155,8 +155,9 @@ class MyWindow(QMainWindow):
             self.combobox_container.removeWidget(self.weights_box)
             self.weights_box = None
         
-        self.weights_box = self.create_combobox(list(self.network.get_weights().keys()))
-        self.weights_box.currentTextChanged.connect(self.network.update_weights)
+        if self.network.weights != "":
+            self.weights_box = self.create_combobox([""]+self.network.weights)
+            self.weights_box.currentTextChanged.connect(self.network.update_weights)
 
     def validate_input(self) -> None:
         """
