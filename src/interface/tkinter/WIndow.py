@@ -90,6 +90,7 @@ class Window(tk.Tk):
         
         combobox = ttk.Combobox(
             self.combobox_container,
+            state="readonly",
             values=items,
             font=("Arial", self.FONT_SIZE),
             style="Custom.TCombobox",
