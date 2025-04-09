@@ -7,7 +7,7 @@ def pyqt() -> None:
     app.exec()
 
 def tkinter() -> None:
-    from interface.tkinter.WIndow import Window
+    from interface.tkinter.Window import Window
     window = Window()
     window.mainloop()
 
