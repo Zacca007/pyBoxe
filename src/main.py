@@ -12,4 +12,4 @@ def tkinter() -> None:
     window.mainloop()
 
 if __name__ == "__main__":
-    pyqt()
+    tkinter()
