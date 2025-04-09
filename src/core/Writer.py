@@ -20,41 +20,29 @@ class Writer:
         self.write_athletes()
 
     def parse_athletes(self) -> None:
-        try:
-            with ThreadPoolExecutor(max_workers=5) as executor:  # 5 thread per le richieste
-                futures = []
-                while True:
-                    athlete_divs = self.network.scrap_athletes_raw_data()
-                    if not athlete_divs:
-                        break
-
-                    for athlete_div in athlete_divs:
-                        futures.append(executor.submit(self.process_athlete, athlete_div))
-
-                    self.network.next_page()
-
-                for future in futures:
-                    future.result()  # Assicura che tutte le richieste siano completate
-
-            self.network.reset_payload()
-        except Exception as e:
-            print(e)
+        with ThreadPoolExecutor(max_workers=5) as executor:  # 5 thread per le richieste
+            futures = []
+            while True:
+                athlete_divs = self.network.scrap_athletes_raw_data()
+                if not athlete_divs:
+                    break
+                for athlete_div in athlete_divs:
+                    futures.append(executor.submit(self.process_athlete, athlete_div))
+                self.network.next_page()
+            for future in futures:
+                future.result()  # Assicura che tutte le richieste siano completate
+        self.network.reset_payload()
 
     def process_athlete(self, athlete_div) -> None:
-        try:
-            athlete = self.network.div_to_athlete(athlete_div)
-            if not (self.min_matches <= athlete.total_matches() <= self.max_matches):
-                return
-
-            name_elem = athlete_div.find(class_='card-title')
-            athlete.name = name_elem.text.strip()
-            athlete.age = int(name_elem.find_next_sibling(class_='card-title').text.split(':')[-1])
-            athlete.club = athlete_div.find('h6', string='Società').find_next('p').text.strip()
-
-            with self._lock:
-                self._athletes.append(athlete)
-        except Exception as e:
-            print(e)
+        athlete = self.network.div_to_athlete(athlete_div)
+        if not (self.min_matches <= athlete.total_matches() <= self.max_matches):
+            return
+        name_elem = athlete_div.find(class_='card-title')
+        athlete.name = name_elem.text.strip()
+        athlete.age = int(name_elem.find_next_sibling(class_='card-title').text.split(':')[-1])
+        athlete.club = athlete_div.find('h6', string='Società').find_next('p').text.strip()
+        with self._lock:
+            self._athletes.append(athlete)
 
     def write_athletes(self) -> None:
         workbook = openpyxl.Workbook()
