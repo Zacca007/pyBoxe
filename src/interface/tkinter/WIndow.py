@@ -1,7 +1,8 @@
-import re
+import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
-import os
+from re import match
+from copy import deepcopy
 from core import *
 
 class Window(tk.Tk):
@@ -19,10 +20,6 @@ class Window(tk.Tk):
         self.title("PyBoxe")
         self.minsize(700, 600)
         self.configure(bg="#555555")
-        
-        # Set icon if exists
-        if os.path.exists("../assets/boxe.ico"):
-            self.iconbitmap("../assets/boxe.ico")
 
         # Managers
         self.network = Network()
@@ -233,12 +230,24 @@ class Window(tk.Tk):
         max_matches = int(self.max_input.get() or 7)
         filename = self.filename_input.get()
 
-        if not re.match(r'^[\w\-.]+$', filename):
+        if not match(r'^[\w\-.]+$', filename):
             messagebox.showerror("Error", "The file name contains invalid characters.")
             return
+        
+        threading.Thread(
+            target=self.init_search,
+            args=(min_matches, max_matches, filename),
+            daemon=True
+        ).start()
+
+    def init_search(self, min_matches: int, max_matches: int, filename: str) -> None:
+        """
+        Effettua una ricerca con una copia del network in un thread separato.
+        """
+        network_copy = deepcopy(self.network)
 
         data_manager = Writer(
-            self.network,
+            network_copy,
             min_matches,
             max_matches,
             filename

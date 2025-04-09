@@ -64,3 +64,4 @@ class Writer:
             row_num += 1
 
         workbook.save(f"{self.file_name}.xlsx")
+        workbook.close()
