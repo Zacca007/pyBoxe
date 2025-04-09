@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import QComboBox, QWidget
-from src.components import BaseWidget
+from . import BaseWidget
 
 class MyComboBox(QComboBox, BaseWidget):
     def __init__(self, parent: QWidget, items: list[str] | None = None, default_index: int = -1, **kwargs) -> None:

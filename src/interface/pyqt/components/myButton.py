@@ -1,7 +1,7 @@
-from PyQt6.QtWidgets import QLabel, QWidget
-from src.components import BaseWidget
+from PyQt6.QtWidgets import QPushButton, QWidget
+from . import BaseWidget
 
-class MyLabel(QLabel, BaseWidget):
+class MyButton(QPushButton, BaseWidget):
     def __init__(self, text: str, parent: QWidget, **kwargs) -> None:
         if not isinstance(text, str):
             raise TypeError("text deve essere una stringa")
