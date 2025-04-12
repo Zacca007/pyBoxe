@@ -233,21 +233,9 @@ class Window(tk.Tk):
         if not match(r'^[\w\-.]+$', filename):
             messagebox.showerror("Error", "The file name contains invalid characters.")
             return
-        
-        threading.Thread(
-            target=self.init_search,
-            args=(min_matches, max_matches, filename),
-            daemon=True
-        ).start()
-
-    def init_search(self, min_matches: int, max_matches: int, filename: str) -> None:
-        """
-        Effettua una ricerca con una copia del network in un thread separato.
-        """
-        network_copy = deepcopy(self.network)
 
         data_manager = Writer(
-            network_copy,
+            self.network,
             min_matches,
             max_matches,
             filename
@@ -260,7 +248,8 @@ class Window(tk.Tk):
                 f"File '{filename}.xlsx' created successfully!"
             )
         except Exception as e:
-            messagebox.showerror("Unable to save the file", str(e))
+            messagebox.showinfo("error", str(e))
+            messagebox.showerror("error", str(e))
 
 # If this file is run directly
 if __name__ == "__main__":

@@ -3,7 +3,6 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from . import Network, Athlete
 
-
 class Writer:
     _lock = threading.Lock()
 
@@ -20,7 +19,7 @@ class Writer:
         self.write_athletes()
 
     def parse_athletes(self) -> None:
-        with ThreadPoolExecutor(max_workers=5) as executor:  # 5 thread per le richieste
+        with ThreadPoolExecutor(max_workers=4) as executor:  # 5 thread per le richieste
             futures = []
             while True:
                 athlete_divs = self.network.scrap_athletes_raw_data()
@@ -30,7 +29,7 @@ class Writer:
                     futures.append(executor.submit(self.process_athlete, athlete_div))
                 self.network.next_page()
             for future in futures:
-                future.result()  # Assicura che tutte le richieste siano completate
+                future.result()
         self.network.reset_payload()
 
     def process_athlete(self, athlete_div) -> None:
