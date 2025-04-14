@@ -1,11 +1,12 @@
-import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from re import match
-from copy import deepcopy
-from core import *
+from src.core import FpiService, FpiWriter
+
 
 class Window(tk.Tk):
+    """Main application window using the new modular architecture."""
+
     # Style constants
     BG_LIGHT_BLUE = "#8D99AE"
     BG_DARK_BLUE = "#2B2D42"
@@ -21,8 +22,8 @@ class Window(tk.Tk):
         self.minsize(700, 600)
         self.configure(bg="#555555")
 
-        # Managers
-        self.network = Network()
+        # Initialize service
+        self.service = FpiService()
 
         # UI Elements (initialized as None)
         self.weights_box = None
@@ -42,16 +43,16 @@ class Window(tk.Tk):
         """
         frame = tk.Frame(parent, bg=self.BG_LIGHT_BLUE, padx=5, pady=5, height=60)
         frame.pack_propagate(False)  # Prevent frame from shrinking to child widgets
-        
+
         label = tk.Label(
-            frame, 
-            text=label_text, 
-            bg=self.BG_LIGHT_BLUE, 
-            fg=self.TEXT_BLACK, 
+            frame,
+            text=label_text,
+            bg=self.BG_LIGHT_BLUE,
+            fg=self.TEXT_BLACK,
             font=("Arial", self.FONT_SIZE)
         )
         label.pack(side=tk.LEFT, padx=5)
-        
+
         # Create validation for numbers only
         vcmd = (self.register(self.validate_number), '%P')
         input_field = tk.Entry(
@@ -64,7 +65,7 @@ class Window(tk.Tk):
             validatecommand=vcmd
         )
         input_field.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=5, pady=5)
-        
+
         return frame, input_field
 
     def validate_number(self, value):
@@ -84,7 +85,7 @@ class Window(tk.Tk):
             background=self.BG_DARK_BLUE,
             fieldbackground=self.BG_DARK_BLUE
         )
-        
+
         combobox = ttk.Combobox(
             self.combobox_container,
             state="readonly",
@@ -128,35 +129,35 @@ class Window(tk.Tk):
 
         # Combo boxes for committees and qualifications
         committees_label = tk.Label(
-            self.combobox_container, 
-            text="Committee:", 
-            bg=self.BG_LIGHT_BLUE, 
-            fg=self.TEXT_BLACK, 
+            self.combobox_container,
+            text="Committee:",
+            bg=self.BG_LIGHT_BLUE,
+            fg=self.TEXT_BLACK,
             font=("Arial", self.FONT_SIZE)
         )
         committees_label.pack(anchor=tk.W, padx=10)
-        
-        self.committees_box = self.create_combobox([""]+self.network.committees)
-        self.committees_box.bind("<<ComboboxSelected>>", lambda e: self.network.update_committee(self.committees_box.get()))
-        
+
+        self.committees_box = self.create_combobox([""] + self.service.committees)
+        self.committees_box.bind("<<ComboboxSelected>>", self.on_committee_changed)
+
         qualifications_label = tk.Label(
-            self.combobox_container, 
-            text="Qualification:", 
-            bg=self.BG_LIGHT_BLUE, 
-            fg=self.TEXT_BLACK, 
+            self.combobox_container,
+            text="Qualification:",
+            bg=self.BG_LIGHT_BLUE,
+            fg=self.TEXT_BLACK,
             font=("Arial", self.FONT_SIZE)
         )
         qualifications_label.pack(anchor=tk.W, padx=10, pady=(20, 0))
-        
-        self.qualifications_box = self.create_combobox([""]+self.network.qualifications)
-        self.qualifications_box.bind("<<ComboboxSelected>>", lambda e: self.update_filters_state(self.qualifications_box.get()))
+
+        self.qualifications_box = self.create_combobox([""] + self.service.qualifications)
+        self.qualifications_box.bind("<<ComboboxSelected>>", self.on_qualification_changed)
 
         # Create weights label that will be shown/hidden as needed
         self.weights_label = tk.Label(
-            self.combobox_container, 
-            text="Weight:", 
-            bg=self.BG_LIGHT_BLUE, 
-            fg=self.TEXT_BLACK, 
+            self.combobox_container,
+            text="Weight:",
+            bg=self.BG_LIGHT_BLUE,
+            fg=self.TEXT_BLACK,
             font=("Arial", self.FONT_SIZE)
         )
         # We don't pack this yet - it will be packed only when needed
@@ -199,57 +200,118 @@ class Window(tk.Tk):
         )
         submit_btn.pack(expand=True)
 
-    def update_filters_state(self, text):
-        """
-        Updates the state of filters based on the selected qualification.
-        """
-        self.network.update_qualification(text)
-        
+    def on_committee_changed(self, event=None):
+        """Handle committee selection change."""
+        selected_committee = self.committees_box.get()
+        self.service.update_committee(selected_committee)
+
+    def on_qualification_changed(self, event=None):
+        """Handle qualification selection change."""
+        selected_qualification = self.qualifications_box.get()
+        self.service.update_qualification(selected_qualification)
+
         # Remove existing weights box if it exists
         if self.weights_box:
             self.weights_box.destroy()
             self.weights_box = None
-            
+
         # Hide the weights label if it's currently shown
         if self.weights_label.winfo_ismapped():
             self.weights_label.pack_forget()
-        
-        if self.network.weights != "":
+
+        # Show weights if available for the selected qualification
+        available_weights = self.service.weights
+        if available_weights:
             # Show the weights label
             self.weights_label.pack(anchor=tk.W, padx=10, pady=(20, 0))
-            
+
             # Create weights combobox
-            self.weights_box = self.create_combobox([""]+self.network.weights)
-            self.weights_box.bind("<<ComboboxSelected>>", lambda e: self.network.update_weights(self.weights_box.get()))
+            self.weights_box = self.create_combobox([""] + available_weights)
+            self.weights_box.bind("<<ComboboxSelected>>", self.on_weight_changed)
+
+    def on_weight_changed(self, event=None):
+        """Handle weight selection change."""
+        selected_weight = self.weights_box.get()
+        self.service.update_weight(selected_weight)
 
     def validate_input(self):
         """
         Validates user input and starts the search process.
         """
-        min_matches = int(self.min_input.get() or 3)
-        max_matches = int(self.max_input.get() or 7)
-        filename = self.filename_input.get()
-
-        if not match(r'^[\w\-.]+$', filename):
-            messagebox.showerror("Error", "The file name contains invalid characters.")
+        try:
+            min_matches = int(self.min_input.get() or 3)
+            max_matches = int(self.max_input.get() or 7)
+        except ValueError:
+            messagebox.showerror("Error", "Please enter valid numbers for match counts.")
             return
 
-        data_manager = Writer(
-            self.network,
-            min_matches,
-            max_matches,
-            filename
-        )
-        
+        if min_matches < 0 or max_matches < 0:
+            messagebox.showerror("Error", "Match counts cannot be negative.")
+            return
+
+        if min_matches > max_matches:
+            messagebox.showerror("Error", "Minimum matches cannot be greater than maximum matches.")
+            return
+
+        filename = self.filename_input.get().strip()
+
+        if not filename:
+            messagebox.showerror("Error", "Please enter a file name.")
+            return
+
+        if not match(r'^[\w\-.]+$', filename):
+            messagebox.showerror("Error",
+                                 "The file name contains invalid characters. Use only letters, numbers, hyphens, underscores, and dots.")
+            return
+
+        # Start the search and export process
+        self.perform_search(min_matches, max_matches, filename)
+
+    def perform_search(self, min_matches, max_matches, filename):
+        """
+        Performs the athlete search and export operation.
+        """
         try:
-            data_manager.search()
-            messagebox.showinfo(
-                "Process Completed", 
-                f"File '{filename}.xlsx' created successfully!"
+            # Disable the submit button during processing
+            submit_btn = None
+            for widget in self.winfo_children():
+                if isinstance(widget, tk.Frame):
+                    for child in widget.winfo_children():
+                        if isinstance(child, tk.Frame):
+                            for grandchild in child.winfo_children():
+                                if isinstance(grandchild, tk.Button) and grandchild['text'] == 'Search athletes':
+                                    submit_btn = grandchild
+                                    break
+
+            if submit_btn:
+                submit_btn.config(state='disabled', text='Searching...')
+                self.update()
+
+            # Create writer and perform search
+            writer = FpiWriter(
+                self.service,
+                min_matches,
+                max_matches,
+                filename
             )
+
+            writer.search_and_write()
+
+            # Show success message
+            messagebox.showinfo(
+                "Process Completed",
+                f"File '{filename}.xlsx' created successfully!\n"
+                f"Found and exported {writer.get_athlete_count()} athletes."
+            )
+
         except Exception as e:
-            messagebox.showinfo("error", str(e))
-            messagebox.showerror("error", str(e))
+            messagebox.showerror("Error", f"An error occurred during the search:\n{str(e)}")
+
+        finally:
+            # Re-enable the submit button
+            if submit_btn:
+                submit_btn.config(state='normal', text='Search athletes')
+
 
 # If this file is run directly
 if __name__ == "__main__":
