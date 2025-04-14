@@ -1,10 +1,7 @@
 import openpyxl
-import threading
-from concurrent.futures import ThreadPoolExecutor
 from . import Network, Athlete
 
 class Writer:
-    _lock = threading.Lock()
 
     def __init__(self, network: Network, min_matches: int, max_matches: int, file_name: str):
         self.network = network
@@ -19,17 +16,14 @@ class Writer:
         self.write_athletes()
 
     def parse_athletes(self) -> None:
-        with ThreadPoolExecutor(max_workers=4) as executor:  # 5 thread per le richieste
-            futures = []
-            while True:
-                athlete_divs = self.network.scrap_athletes_raw_data()
-                if not athlete_divs:
-                    break
-                for athlete_div in athlete_divs:
-                    futures.append(executor.submit(self.process_athlete, athlete_div))
-                self.network.next_page()
-            for future in futures:
-                future.result()
+        while True:
+            athlete_divs = self.network.scrap_athletes_raw_data()
+            if not athlete_divs:
+                break
+            for athlete_div in athlete_divs:
+                self.process_athlete(athlete_div)
+
+            self.network.next_page()
         self.network.reset_payload()
 
     def process_athlete(self, athlete_div) -> None:
@@ -40,8 +34,7 @@ class Writer:
         athlete.name = name_elem.text.strip()
         athlete.age = int(name_elem.find_next_sibling(class_='card-title').text.split(':')[-1])
         athlete.club = athlete_div.find('h6', string='Società').find_next('p').text.strip()
-        with self._lock:
-            self._athletes.append(athlete)
+        self._athletes.append(athlete)
 
     def write_athletes(self) -> None:
         workbook = openpyxl.Workbook()

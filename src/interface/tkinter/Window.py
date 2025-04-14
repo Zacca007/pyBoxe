@@ -1,8 +1,6 @@
-import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 from re import match
-from copy import deepcopy
 from core import *
 
 class Window(tk.Tk):
