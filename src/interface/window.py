@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 from re import match
+import threading
+import copy
 from src.core import FpiService, FpiWriter
 
 
@@ -68,7 +70,8 @@ class Window(tk.Tk):
 
         return frame, input_field
 
-    def validate_number(self, value):
+    @staticmethod
+    def validate_number(value):
         """Validates if the input is a number or empty"""
         if value == "" or value.isdigit():
             return True
@@ -269,48 +272,35 @@ class Window(tk.Tk):
 
     def perform_search(self, min_matches, max_matches, filename):
         """
-        Performs the athlete search and export operation.
+        Performs the athlete search and export operation in a separate thread.
         """
-        try:
-            # Disable the submit button during processing
-            submit_btn = None
-            for widget in self.winfo_children():
-                if isinstance(widget, tk.Frame):
-                    for child in widget.winfo_children():
-                        if isinstance(child, tk.Frame):
-                            for grandchild in child.winfo_children():
-                                if isinstance(grandchild, tk.Button) and grandchild['text'] == 'Search athletes':
-                                    submit_btn = grandchild
-                                    break
+        # Create a copy of the service for this search
+        service_copy = copy.deepcopy(self.service)
 
-            if submit_btn:
-                submit_btn.config(state='disabled', text='Searching...')
-                self.update()
+        def search_worker():
+            try:
+                # Create writer with copied service
+                writer = FpiWriter(service_copy, min_matches, max_matches, filename)
 
-            # Create writer and perform search
-            writer = FpiWriter(
-                self.service,
-                min_matches,
-                max_matches,
-                filename
-            )
+                # Perform search and write
+                writer.search_and_write()
 
-            writer.search_and_write()
+                # Show success message in main thread
+                self.after(0, lambda: messagebox.showinfo(
+                    "Process Completed",
+                    f"File '{filename}.xlsx' created successfully!\n"
+                    f"Found and exported {writer.get_athlete_count()} athletes."
+                ))
 
-            # Show success message
-            messagebox.showinfo(
-                "Process Completed",
-                f"File '{filename}.xlsx' created successfully!\n"
-                f"Found and exported {writer.get_athlete_count()} athletes."
-            )
+            except Exception as e:
+                # Show error message in main thread
+                self.after(0, lambda: messagebox.showerror(
+                    "Error", f"An error occurred during the search:\n{str(e)}"
+                ))
 
-        except Exception as e:
-            messagebox.showerror("Error", f"An error occurred during the search:\n{str(e)}")
-
-        finally:
-            # Re-enable the submit button
-            if submit_btn:
-                submit_btn.config(state='normal', text='Search athletes')
+        # Start the search in a new thread
+        search_thread = threading.Thread(target=search_worker, daemon=True)
+        search_thread.start()
 
 
 # If this file is run directly
