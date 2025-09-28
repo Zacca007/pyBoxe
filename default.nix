@@ -1,10 +1,12 @@
 with (import <nixpkgs> {});
 mkShell {
-  buildInputs = with python312Packages; [
+  buildInputs = with python313Packages; [
     openpyxl
     requests
     beautifulsoup4
     pyqt6
     tkinter
+
+    libreoffice
   ];
 }
