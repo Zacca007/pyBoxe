@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from re import match
 import threading
 import copy
-from src.core import FpiService, FpiWriter
+from core import FpiService, FpiWriter
 
 
 class Window(tk.Tk):
@@ -28,18 +28,18 @@ class Window(tk.Tk):
         self.service = FpiService()
 
         # UI Elements (initialized as None)
-        self.weights_box = None
-        self.min_input = None
-        self.max_input = None
-        self.committees_box = None
-        self.qualifications_box = None
-        self.filename_input = None
+        self.weights_box = ttk.Combobox()
+        self.min_input = tk.Entry()
+        self.max_input = tk.Entry()
+        self.committees_box = ttk.Combobox()
+        self.qualifications_box = ttk.Combobox()
+        self.filename_input = tk.Entry()
         self.combobox_container = None
-        self.weights_label = None
+        self.weights_label = tk.Label()
 
         self.init_ui()
 
-    def create_match_input(self, parent, label_text):
+    def create_match_input(self, parent, label_text) -> tuple[tk.Frame, tk.Entry]:
         """
         Creates a horizontal frame with a label and an input field for match counts.
         """
@@ -77,7 +77,7 @@ class Window(tk.Tk):
             return True
         return False
 
-    def create_combobox(self, items):
+    def create_combobox(self, items) -> ttk.Combobox:
         """
         Creates a combobox with the given items and adds it to the combobox container.
         """
@@ -216,7 +216,7 @@ class Window(tk.Tk):
         # Remove existing weights box if it exists
         if self.weights_box:
             self.weights_box.destroy()
-            self.weights_box = None
+            self.weights_box = ttk.Combobox()
 
         # Hide the weights label if it's currently shown
         if self.weights_label.winfo_ismapped():
