@@ -27,11 +27,9 @@ class FpiParser:
         return athletes
 
     @staticmethod
-    def parse_statistics(html: str, athlete: FpiAthlete) -> FpiAthlete:
+    def parse_statistics(html: str) -> tuple[int, int, int]:
         """Parsa statistiche e aggiorna un atleta esistente."""
         soup = BeautifulSoup(html, "html.parser")
         stats = soup.find_all("td")
-        athlete.wins = int(stats[1].text)
-        athlete.losses = int(stats[2].text)
-        athlete.draws = int(stats[3].text)
-        return athlete
+
+        return int(stats[1].text), int(stats[2].text), int(stats[3].text)

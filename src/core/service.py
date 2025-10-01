@@ -1,7 +1,8 @@
 from .client import FpiClient
 from .parser import FpiParser
 from .athlete import FpiAthlete
-
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import time
 
 class FpiService:
     """Service class that acts as a bridge between UI and core modules."""
@@ -82,18 +83,22 @@ class FpiService:
                 self._weights_cache[qualification_id] = {}
 
     # ========== ATHLETE SEARCH ==========
-    def search_athletes_with_filters(self, min_matches: int, max_matches: int) -> list[FpiAthlete]:
+    def search_athletes_with_filters(self, min_matches: int, max_matches: int, max_workers: int = 4) -> list[
+        FpiAthlete]:
         """
-        Searches for athletes matching the given criteria.
+        Searches for athletes matching the given criteria using parallel processing.
 
         Args:
             min_matches: Minimum number of matches
             max_matches: Maximum number of matches
+            max_workers: Number of parallel workers (default: 4)
 
         Returns:
             List of FpiAthlete objects that match the criteria
         """
-        athletes = []
+        start_time = time.time()  # Inizio misurazione
+
+        athletes: list[FpiAthlete] = []
 
         # Prepare client for search
         self._client.setup_payload_on_search()
@@ -101,25 +106,30 @@ class FpiService:
         try:
             while True:
                 # Get athletes from current page
-                html = self._client.athletes_html()
-                page_athletes = self._parser.parse_athletes(html)
+                html: str = self._client.athletes_html()
+                page_athletes: list[FpiAthlete] = self._parser.parse_athletes(html)
 
                 if not page_athletes:
                     break
 
-                # Process each athlete
-                for athlete in page_athletes:
-                    try:
-                        # Get athlete statistics
-                        stats_html = self._client.statistics_html(athlete.id)
-                        athlete = self._parser.parse_statistics(stats_html, athlete)
+                # Divide list into chunks for parallel processing
+                chunk_size = max(1, len(page_athletes) // max_workers)
+                chunks = [page_athletes[i:i + chunk_size] for i in range(0, len(page_athletes), chunk_size)]
 
-                        # Filter by match count
-                        if min_matches <= athlete.total_matches() <= max_matches:
-                            athletes.append(athlete)
-                    except Exception as e:
-                        print(f"Error processing athlete {athlete.name}: {e}")
-                        continue
+                # Process chunks in parallel
+                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    futures = [
+                        executor.submit(self._process_athlete_chunk, chunk, min_matches, max_matches)
+                        for chunk in chunks
+                    ]
+
+                    # Collect results as they complete
+                    for future in as_completed(futures):
+                        try:
+                            filtered_athletes = future.result()
+                            athletes.extend(filtered_athletes)
+                        except Exception as e:
+                            print(f"Error processing chunk: {e}")
 
                 # Move to next page
                 self._client.next_page()
@@ -130,21 +140,39 @@ class FpiService:
             # Reset client payload
             self._client.reset_payload()
 
+        elapsed_time = time.time() - start_time  # Fine misurazione
+        print(f"⏱️  Tempo di esecuzione: {elapsed_time:.2f} secondi ({elapsed_time / 60:.2f} minuti)")
+        print(f"📊 Atleti trovati: {len(athletes)}")
+
         return athletes
 
-    def get_athlete_statistics(self, athlete: FpiAthlete) -> FpiAthlete:
+    def _process_athlete_chunk(self, athletes: list[FpiAthlete], min_matches: int, max_matches: int) -> list[
+        FpiAthlete]:
         """
-        Fetches and updates statistics for a specific athlete.
+        Processes a chunk of athletes in a separate thread.
 
         Args:
-            athlete: FpiAthlete object to update
+            athletes: List of athletes to process
+            min_matches: Minimum number of matches
+            max_matches: Maximum number of matches
 
         Returns:
-            Updated FpiAthlete object with statistics
+            List of filtered athletes
         """
-        try:
-            stats_html = self._client.statistics_html(athlete.id)
-            return self._parser.parse_statistics(stats_html, athlete)
-        except Exception as e:
-            print(f"Error getting statistics for athlete {athlete.name}: {e}")
-            return athlete
+        filtered: list[FpiAthlete] = []
+
+        for athlete in athletes:
+            try:
+                # Get athlete statistics
+                stats_html: str = self._client.statistics_html(athlete.id)
+                stats: tuple[int, int, int] = self._parser.parse_statistics(stats_html)
+                athlete.set_stats(stats)
+
+                # Filter by match count
+                if min_matches <= athlete.total_matches() <= max_matches:
+                    filtered.append(athlete)
+            except Exception as e:
+                print(f"Error processing athlete {athlete.name}: {e}")
+                continue
+
+        return filtered
