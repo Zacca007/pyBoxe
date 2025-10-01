@@ -83,7 +83,7 @@ class FpiService:
                 self._weights_cache[qualification_id] = {}
 
     # ========== ATHLETE SEARCH ==========
-    def search_athletes_with_filters(self, min_matches: int, max_matches: int, max_workers: int = 4) -> list[
+    def search_athletes_with_filters(self, min_matches: int, max_matches: int, max_workers: int = 6) -> list[
         FpiAthlete]:
         """
         Searches for athletes matching the given criteria using parallel processing.
