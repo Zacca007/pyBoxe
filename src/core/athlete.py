@@ -11,3 +11,8 @@ class FpiAthlete:
 
     def total_matches(self) -> int:
         return self.wins + self.losses + self.draws
+
+    def set_stats(self, stats: tuple[int, int, int]):
+        self.wins = stats[0]
+        self.losses = stats[1]
+        self.draws = stats[2]
