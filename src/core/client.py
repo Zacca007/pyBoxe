@@ -83,7 +83,7 @@ class FpiClient:
         else:
             self._payload.pop("id_peso", None)
 
-    def get_current_qualification(self) -> str:
+    def get_current_qualification(self) -> str| int:
         """Returns the current qualification ID."""
         return self._payload.get("qualifica", "")
 
