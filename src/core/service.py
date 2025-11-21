@@ -83,20 +83,18 @@ class FpiService:
                 self._weights_cache[qualification_id] = {}
 
     # ========== ATHLETE SEARCH ==========
-    def search_athletes_with_filters(self, min_matches: int, max_matches: int, max_workers: int = 4) -> list[
+    def search_athletes_with_filters(self, min_matches: int, max_matches: int) -> list[
         FpiAthlete]:
         """
-        Searches for athletes matching the given criteria using parallel processing.
+        Searches for athletes matching the given criteria
 
         Args:
             min_matches: Minimum number of matches
             max_matches: Maximum number of matches
-            max_workers: Number of parallel workers (default: 4)
 
         Returns:
             List of FpiAthlete objects that match the criteria
         """
-        start_time = time.time()  # Inizio misurazione
 
         athletes: list[FpiAthlete] = []
 
@@ -112,24 +110,18 @@ class FpiService:
                 if not page_athletes:
                     break
 
-                # Divide list into chunks for parallel processing
-                chunk_size = max(1, len(page_athletes) // max_workers)
-                chunks = [page_athletes[i:i + chunk_size] for i in range(0, len(page_athletes), chunk_size)]
+                for athlete in page_athletes:
+                    try:
+                        # Get athlete statistics
+                        stats_html = self._client.statistics_html(athlete.id)
+                        athlete.set_stats(self._parser.parse_statistics(stats_html))
 
-                # Process chunks in parallel
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
-                    futures = [
-                        executor.submit(self._process_athlete_chunk, chunk, min_matches, max_matches)
-                        for chunk in chunks
-                    ]
-
-                    # Collect results as they complete
-                    for future in as_completed(futures):
-                        try:
-                            filtered_athletes = future.result()
-                            athletes.extend(filtered_athletes)
-                        except Exception as e:
-                            print(f"Error processing chunk: {e}")
+                        # Filter by match count
+                        if min_matches <= athlete.total_matches() <= max_matches:
+                            athletes.append(athlete)
+                    except Exception as e:
+                        print(f"Error processing athlete {athlete.name}: {e}")
+                        continue
 
                 # Move to next page
                 self._client.next_page()
@@ -140,39 +132,5 @@ class FpiService:
             # Reset client payload
             self._client.reset_payload()
 
-        elapsed_time = time.time() - start_time  # Fine misurazione
-        print(f"⏱️  Tempo di esecuzione: {elapsed_time:.2f} secondi ({elapsed_time / 60:.2f} minuti)")
-        print(f"📊 Atleti trovati: {len(athletes)}")
 
         return athletes
-
-    def _process_athlete_chunk(self, athletes: list[FpiAthlete], min_matches: int, max_matches: int) -> list[
-        FpiAthlete]:
-        """
-        Processes a chunk of athletes in a separate thread.
-
-        Args:
-            athletes: List of athletes to process
-            min_matches: Minimum number of matches
-            max_matches: Maximum number of matches
-
-        Returns:
-            List of filtered athletes
-        """
-        filtered: list[FpiAthlete] = []
-
-        for athlete in athletes:
-            try:
-                # Get athlete statistics
-                stats_html: str = self._client.statistics_html(athlete.id)
-                stats: tuple[int, int, int] = self._parser.parse_statistics(stats_html)
-                athlete.set_stats(stats)
-
-                # Filter by match count
-                if min_matches <= athlete.total_matches() <= max_matches:
-                    filtered.append(athlete)
-            except Exception as e:
-                print(f"Error processing athlete {athlete.name}: {e}")
-                continue
-
-        return filtered
