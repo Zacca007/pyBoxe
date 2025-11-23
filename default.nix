@@ -6,7 +6,7 @@ mkShell {
     beautifulsoup4
     pyqt6
     tkinter
-
+    flask
     libreoffice
   ];
 }

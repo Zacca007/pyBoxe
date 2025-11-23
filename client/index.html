@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="assets/boxe.ico" type="image/x-icon">
+    <link rel="stylesheet" href="styles/style.css">
+    <title>PyBoxe</title>
+</head>
+
+<body>
+    <header>
+        <h1><a href="/">🥊PyBoxe🥊</a></h1>
+    </header>
+    <main>
+        <form action="/" method="post">
+            <p>Inserisci i parametri della ricerca</p>
+            <span id="result" hidden></span>
+
+            <select name="comitato" id="comitato">
+                <option value="">Seleziona comitato (opzionale)</option>
+                <option value="1">C.R. ABRUZZO-MOLISE F.P.I.</option>
+                <option value="2">DEL. PROVINCIALE DI BOLZANO F.P.I.</option>
+                <option value="3">C.R. CALABRIA F.P.I.</option>
+                <option value="4">C.R. CAMPANIA F.P.I.</option>
+                <option value="5">C.R. EMILIA - ROMAGNA F.P.I.</option>
+                <option value="6">C.R. LOMBARDIA F.P.I.</option>
+                <option value="7">C.R. LIGURIA F.P.I.</option>
+                <option value="8">C.R. LAZIO F.P.I.</option>
+                <option value="9">C.R. MARCHE F.P.I.</option>
+                <option value="10">C.R. PUGLIA-BASILICATA F.P.I.</option>
+                <option value="11">C.R. PIEMONTE-VALLE D'AOSTA F.P.I.</option>
+                <option value="12">C.R. SARDEGNA F.P.I.</option>
+                <option value="13">C.R. SICILIA F.P.I.</option>
+                <option value="14">DEL. PROVINCIALE DI TRENTO F.P.I.</option>
+                <option value="15">C.R. TOSCANA F.P.I.</option>
+                <option value="16">DEL. REGIONALE UMBRIA F.P.I.</option>
+                <option value="17">C.R. VENETO F.P.I.</option>
+                <option value="18">C.R. FRIULI V.GIULIA F.P.I.</option>
+            </select>
+
+            <select name="qualifica" id="qualifica" required>
+                <option value="">Seleziona qualifica...</option>
+                <!-- Caricato dinamicamente dal server -->
+            </select>
+
+            <select name="peso" id="peso" hidden>
+                <option value="">Seleziona peso...</option>
+                <!-- Caricato dinamicamente dal server -->
+            </select>
+
+            <div class="matches-group">
+                <input type="text" name="min_matches" placeholder="match minimi" pattern="[0-9]{1,3}" maxlength="3" required>
+                <input type="text" name="max_matches" placeholder="Max match" pattern="[0-9]{1,3}" maxlength="3" required>
+            </div>
+
+            <input type="text" name="filename" placeholder="Nome del file" required>
+
+            <button type="submit">Scarica 💾</button>
+        </form>
+    </main>
+    <footer>
+        Made by the greatest computer scientist of all time
+    </footer>
+
+    <script src="scripts/client.js"></script>
+</body>
+
+</html>
