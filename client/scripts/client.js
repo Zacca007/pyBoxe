@@ -38,10 +38,13 @@ function handleError(err = -1) {
 function handleSuccess(succ = -1) {
     res.classList.remove("loading");
     if (succ === 1) {
-        window.location.href = "/download";
         res.classList.add("succ");
         res.hidden = false;
-        res.textContent = "✅ File Excel generato e scaricato!";
+        res.textContent = "✅ File Excel generato! Clicca qui per scaricare";
+        res.style.cursor = "pointer";
+        res.onclick = () => {
+            window.location.href = "/download";
+        };
     }
 }
 
@@ -59,6 +62,9 @@ function fetchQualifiche() {
         .then(response => response.text())
         .then(html => {
             qualifica.innerHTML = '<option value="">Seleziona qualifica...</option>' + html;
+        })
+        .catch(() => {
+            qualifica.innerHTML = '<option value="">Errore caricamento qualifiche</option>';
         });
 }
 
@@ -67,6 +73,9 @@ function fetchPesi() {
         .then(response => response.text())
         .then(html => {
             peso.innerHTML = '<option value="">Seleziona peso...</option>' + html;
+        })
+        .catch(() => {
+            peso.innerHTML = '<option value="">Errore caricamento pesi</option>';
         });
 }
 
