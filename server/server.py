@@ -1,6 +1,7 @@
 import copy
 import os
-from flask import Flask, request, redirect, send_file
+from datetime import timedelta
+from flask import Flask, request, redirect, send_file, session
 from core import FpiClient, search, write_to_excel
 
 HOSTNAME = "127.0.0.1"
@@ -14,10 +15,51 @@ app = Flask(
     template_folder="../client"
 )
 
+# Configurazione sessioni Flask
+app.secret_key = os.urandom(24)  # Chiave segreta per crittografare le sessioni
+app.config['SESSION_TYPE'] = 'filesystem'  # Opzionale: per sessioni persistenti
+app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(hours=1)  # Durata sessione: 1 ora
+app.config['SESSION_COOKIE_SECURE'] = False  # Impostare True in produzione con HTTPS
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
 os.makedirs(DOWNLOAD_FOLDER, exist_ok=True)
 
-fpi_client = FpiClient()
-current_file = None
+# Dizionario per memorizzare i client FPI per ogni sessione
+session_clients = {}
+
+
+def get_or_create_client():
+    """
+    Ottiene il client FPI per la sessione corrente o ne crea uno nuovo.
+    """
+    session_id = session.get('sid')
+
+    # Se non esiste un session_id, creane uno
+    if not session_id:
+        session_id = os.urandom(16).hex()
+        session['sid'] = session_id
+        session.permanent = True  # Rende la sessione permanente (usa PERMANENT_SESSION_LIFETIME)
+
+    # Se il client non esiste per questa sessione, crealo
+    if session_id not in session_clients:
+        session_clients[session_id] = FpiClient()
+
+    return session_clients[session_id]
+
+
+def cleanup_old_sessions():
+    """
+    Rimuove le sessioni inattive (chiamare periodicamente o all'avvio).
+    In questo caso semplificato, manteniamo un numero massimo di sessioni.
+    """
+    MAX_SESSIONS = 100
+    if len(session_clients) > MAX_SESSIONS:
+        # Rimuovi le prime 20 sessioni (FIFO)
+        sessions_to_remove = list(session_clients.keys())[:20]
+        for sid in sessions_to_remove:
+            del session_clients[sid]
+
 
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -55,6 +97,9 @@ def index():
             if min_val > max_val:
                 return redirect("/?error=5")
 
+            # Ottieni il client per questa sessione
+            fpi_client = get_or_create_client()
+
             fpi_client.update_comitato(comitato if comitato else None)
             fpi_client.update_qualifiche(qualifica)
             fpi_client.update_pesi(peso if peso else None)
@@ -68,8 +113,8 @@ def index():
             filepath = os.path.join(DOWNLOAD_FOLDER, f"{filename}.xlsx")
             write_to_excel(athletes, filepath)
 
-            global current_file
-            current_file = filepath
+            # Salva il percorso del file nella sessione
+            session['last_file'] = filepath
 
             return redirect("/?success=1")
 
@@ -82,16 +127,17 @@ def index():
 
 @app.route("/download")
 def download():
-    global current_file
+    # Recupera il file dalla sessione
+    filepath = session.get('last_file')
 
-    if not current_file or not os.path.exists(current_file):
+    if not filepath or not os.path.exists(filepath):
         return redirect("/?error=8")
 
     try:
         return send_file(
-            current_file,
+            filepath,
             as_attachment=True,
-            download_name=os.path.basename(current_file),
+            download_name=os.path.basename(filepath),
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
     except Exception as e:
@@ -102,6 +148,7 @@ def download():
 @app.route("/api/qualifiche")
 def fetchQualifiche():
     try:
+        fpi_client = get_or_create_client()
         html = fpi_client.qualifiche_html()
         return html, 200
     except Exception as e:
@@ -112,6 +159,7 @@ def fetchQualifiche():
 @app.route("/api/pesi")
 def fetchPesi():
     try:
+        fpi_client = get_or_create_client()
         html = fpi_client.pesi_html()
         return html, 200
     except RuntimeError as e:
@@ -125,6 +173,7 @@ def fetchPesi():
 @app.route("/api/update/comitato/<int:id>")
 def updateComitato(id):
     try:
+        fpi_client = get_or_create_client()
         fpi_client.update_comitato(str(id) if id else None)
         return "", 204
     except Exception as e:
@@ -135,6 +184,7 @@ def updateComitato(id):
 @app.route("/api/update/qualifica/<int:id>")
 def updateQualifica(id):
     try:
+        fpi_client = get_or_create_client()
         fpi_client.update_qualifiche(str(id) if id else None)
         return "", 204
     except Exception as e:
@@ -145,6 +195,7 @@ def updateQualifica(id):
 @app.route("/api/update/peso/<int:id>")
 def updatePeso(id):
     try:
+        fpi_client = get_or_create_client()
         fpi_client.update_pesi(str(id) if id else None)
         return "", 204
     except Exception as e:
@@ -152,5 +203,12 @@ def updatePeso(id):
         return redirect("/?error=9")
 
 
+@app.before_request
+def before_request():
+    """Eseguito prima di ogni richiesta - utile per pulizia periodica"""
+    cleanup_old_sessions()
+
+
 if __name__ == "__main__":
+    print("✅ Server PyBoxe attivo su http://127.0.0.1:5000")
     app.run(debug=True, port=PORT, host=HOSTNAME)

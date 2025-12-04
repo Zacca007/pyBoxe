@@ -47,7 +47,7 @@ function handleSuccess(succ = -1) {
 
 function displayResult() {
     if (!isValidQuery()) return;
-    
+
     if (queries.has("error"))
         handleError(Number(queries.get("error")));
     else if (queries.has("success"))
@@ -73,19 +73,19 @@ function fetchPesi() {
 function handleChangeComitato() {
     const comitatoId = comitato.value;
     if (!comitatoId) return;
-    
+
     fetch(`/api/update/comitato/${comitatoId}`);
 }
 
 function handleChangeQualifica() {
     const qualificaId = qualifica.value;
-    
+
     if (!qualificaId) {
         peso.hidden = true;
         peso.value = "";
         return;
     }
-    
+
     fetch(`/api/update/qualifica/${qualificaId}`)
         .then(() => {
             peso.hidden = false;
@@ -97,7 +97,7 @@ function handleChangeQualifica() {
 function handleChangePeso() {
     const pesoId = peso.value;
     if (!pesoId) return;
-    
+
     fetch(`/api/update/peso/${pesoId}`);
 }
 
