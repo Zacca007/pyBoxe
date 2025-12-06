@@ -40,11 +40,9 @@ function handleSuccess(succ = -1) {
     if (succ === 1) {
         res.classList.add("succ");
         res.hidden = false;
-        res.textContent = "✅ File Excel generato! Clicca qui per scaricare";
+        res.textContent = "✅ File Excel generato!";
         res.style.cursor = "pointer";
-        res.onclick = () => {
-            window.location.href = "/download";
-        };
+        window.location.href = "/download";
     }
 }
 
@@ -57,8 +55,8 @@ function displayResult() {
         handleSuccess(Number(queries.get("success")));
 }
 
-function fetchQualifiche() {
-    fetch("/api/qualifiche")
+async function fetchQualifiche() {
+    await fetch("/api/qualifiche")
         .then(response => response.text())
         .then(html => {
             qualifica.innerHTML = '<option value="">Seleziona qualifica...</option>' + html;
@@ -115,7 +113,7 @@ qualifica.addEventListener("change", handleChangeQualifica);
 peso.addEventListener("change", handleChangePeso);
 form.addEventListener("submit", displayLoading);
 
-window.addEventListener("load", () => {
-    fetchQualifiche();
+window.addEventListener("load", async () => {
+    await fetchQualifiche();
     displayResult();
 });
